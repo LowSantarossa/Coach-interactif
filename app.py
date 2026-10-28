@@ -213,7 +213,6 @@ Instructions de style :
                         client = genai.Client(api_key=gemini_key)
                         full_prompt = f"{contexte_live}\n\nQuestion de l'athlète : {prompt_user}"
 
-                        # Liste prioritaire des modèles texte (sans les modèles Live/Audio)
                         modeles_a_tester = [
                             "gemini-2.0-flash",
                             "gemini-2.0-flash-lite",
@@ -226,7 +225,6 @@ Instructions de style :
                             for m in client.models.list():
                                 nom_m = getattr(m, "name", "").replace("models/", "")
                                 actions = getattr(m, "supported_actions", []) or []
-                                # On exclut les modèles Live/Audio/TTS et 2.5-flash bloqué
                                 if (
                                     "gemini" in nom_m
                                     and "live" not in nom_m
@@ -292,4 +290,4 @@ with tab_agenda:
             with st.expander(f"{icone} {d_ev} — {nom} ({cat})"):
                 st.text(desc or "Aucun détail.")
     else:
-        st.info("Aucun entraînement ou note planifié pour les prochains jours
+        st.info("Aucun entraînement ou note planifié pour les prochains jours")
