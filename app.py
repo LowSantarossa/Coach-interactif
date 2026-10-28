@@ -213,17 +213,41 @@ Instructions de style :
             with st.chat_message("assistant"):
                 with st.spinner("Analyse de tes données en cours..."):
                     try:
-                        client = genai.Client(api_key=gemini_key)
-                        full_prompt = f"{contexte_live}\n\nQuestion de l'athlète : {prompt_user}"
-                        response = client.models.generate_content(
-                            model="gemini-3.0-flash",
-                            contents=full_prompt
-                        )
-                        reply = response.text
-                        st.markdown(reply)
-                        st.session_state.messages.append({"role": "assistant", "content": reply})
-                    except Exception as e:
-                        st.error(f"Erreur d'appel Gemini : {e}")
+                     client = genai.Client(api_key=gemini_key)
+                     full_prompt = f"{contexte_live}\n\nQuestion de l'athlète : {prompt_user}"
+
+                     # Détection automatique du modèle actif sur ton compte Google
+                     modeles_a_tester = [
+                         "gemini-3-flash-preview",
+                         "gemini-2.0-flash",
+                         "gemini-1.5-flash"
+                     ]
+                     for m in client.models.list():
+                         nom_m = m.name.replace("models/", "")
+                         if "flash" in nom_m and "2.5" not in nom_m and nom_m not in modeles_a_tester:
+                             modeles_a_tester.insert(0, nom_m)
+
+                     reply = None
+                     derniere_erreur = ""
+                     for nom_modele in modeles_a_tester:
+                         try:
+                             response = client.models.generate_content(
+                                 model=nom_modele,
+                                 contents=full_prompt
+                             )
+                             reply = response.text
+                             break
+                         except Exception as err:
+                             derniere_erreur = str(err)
+                             continue
+
+                     if reply:
+                         st.markdown(reply)
+                         st.session_state.messages.append({"role": "assistant", "content": reply})
+                     else:
+                         st.error(f"Aucun modèle disponible : {derniere_erreur}")
+                 except Exception as e:
+                     st.error(f"Erreur d'appel Gemini : {e}")
 
         # Bouton pour sauvegarder la dernière recommandation du coach directement dans Intervals.icu
         if st.session_state.messages and st.session_state.messages[-1]["role"] == "assistant":
