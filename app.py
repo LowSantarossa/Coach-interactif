@@ -34,7 +34,7 @@ def load_dashboard_data():
 
 weather, wellness, activities, events = load_dashboard_data()
 
-# Navigation par onglets (très pratique sur mobile Pixel 10 Pro XL comme sur PC)
+# Navigation par onglets
 tab_accueil, tab_builder, tab_coach, tab_agenda = st.tabs([
     "🏠 Accueil & Forme",
     "🛠️ Créer une Séance",
@@ -76,7 +76,6 @@ with tab_accueil:
     st.divider()
     st.subheader("📈 Dernières activités (14 jours)")
     if activities:
-        # Graphique rapide des distances ou charges
         dates = [a["date"] for a in reversed(activities)]
         loads = [a["load"] or 0 for a in reversed(activities)]
         names = [f"{a['name']} ({a['distance_km']} km)" for a in reversed(activities)]
@@ -108,7 +107,7 @@ with tab_builder:
 
     type_seance = st.radio(
         "Type de séance :",
-        ["🏃‍♂️ Course (Route / Trail / Tapis Horizon T202)", "🏋️‍♂️ Musculation Home Gym (Cage GOIMU / Poulies)"],
+        ["🏃‍♂️ Course (Route / Trail / Tapis)", "🏋️‍♂️ Musculation Home Gym (Cage GOIMU / Poulies)"],
         horizontal=True
     )
 
@@ -129,7 +128,7 @@ with tab_builder:
         work_target = c5.text_input("Cible (ex: 85-90% HR ou 5:15/km Pace)", value="85-90% HR")
         rest_dur = c6.text_input("Récupération entre séries (ex: 2m)", value="2m")
 
-        notes_run = st.text_area("Notes (ex: Saucony Endorphin Speed 5, ou inclinaison 1% sur tapis Horizon T202)", value="")
+        notes_run = st.text_area("Notes (ex: Saucony Endorphin Speed 5, ou inclinaison 1% sur tapis)", value="")
         texte_final = build_running_workout_text(warmup, reps, work_dur, work_target, rest_dur, cooldown, notes_run)
         sport_code = "Run"
 
@@ -184,7 +183,6 @@ with tab_coach:
         if "messages" not in st.session_state:
             st.session_state.messages = []
 
-        # Affichage de l'historique de la session
         for msg in st.session_state.messages:
             with st.chat_message(msg["role"]):
                 st.markdown(msg["content"])
@@ -196,7 +194,6 @@ with tab_coach:
             with st.chat_message("user"):
                 st.markdown(prompt_user)
 
-            # Construction du contexte temps réel pour Gemini
             contexte_live = f"""
 {ATHLETE_CONTEXT}
 
@@ -208,48 +205,49 @@ Données en direct aujourd'hui ({datetime.now().strftime('%Y-%m-%d')}) :
 Instructions de style :
 - Parle de façon directe, naturelle et motivante, comme un collègue autour d'un café.
 - Évite le jargon inutile et les formules toutes faites.
-- Donne des conseils précis (allures, zones Karvonen, choix entre extérieur et tapis Horizon T202, ou exercices sur la cage GOIMU).
+- Donne des conseils précis (allures, zones Karvonen, choix entre extérieur et tapis, ou exercices sur la cage GOIMU).
 """
             with st.chat_message("assistant"):
                 with st.spinner("Analyse de tes données en cours..."):
                     try:
-                     client = genai.Client(api_key=gemini_key)
-                     full_prompt = f"{contexte_live}\n\nQuestion de l'athlète : {prompt_user}"
+                        client = genai.Client(api_key=gemini_key)
+                        full_prompt = f"{contexte_live}\n\nQuestion de l'athlète : {prompt_user}"
 
-                     # Détection automatique du modèle actif sur ton compte Google
-                     modeles_a_tester = [
-                         "gemini-3-flash-preview",
-                         "gemini-2.0-flash",
-                         "gemini-1.5-flash"
-                     ]
-                     for m in client.models.list():
-                         nom_m = m.name.replace("models/", "")
-                         if "flash" in nom_m and "2.5" not in nom_m and nom_m not in modeles_a_tester:
-                             modeles_a_tester.insert(0, nom_m)
+                        modeles_a_tester = [
+                            "gemini-3-flash-preview",
+                            "gemini-2.0-flash",
+                            "gemini-1.5-flash"
+                        ]
+                        try:
+                            for m in client.models.list():
+                                nom_m = getattr(m, "name", "").replace("models/", "")
+                                if "flash" in nom_m and "2.5" not in nom_m and nom_m not in modeles_a_tester:
+                                    modeles_a_tester.insert(0, nom_m)
+                        except Exception:
+                            pass
 
-                     reply = None
-                     derniere_erreur = ""
-                     for nom_modele in modeles_a_tester:
-                         try:
-                             response = client.models.generate_content(
-                                 model=nom_modele,
-                                 contents=full_prompt
-                             )
-                             reply = response.text
-                             break
-                         except Exception as err:
-                             derniere_erreur = str(err)
-                             continue
+                        reply = None
+                        derniere_erreur = ""
+                        for nom_modele in modeles_a_tester:
+                            try:
+                                response = client.models.generate_content(
+                                    model=nom_modele,
+                                    contents=full_prompt
+                                )
+                                reply = response.text
+                                break
+                            except Exception as err:
+                                derniere_erreur = str(err)
+                                continue
 
-                     if reply:
-                         st.markdown(reply)
-                         st.session_state.messages.append({"role": "assistant", "content": reply})
-                     else:
-                         st.error(f"Aucun modèle disponible : {derniere_erreur}")
-                 except Exception as e:
-                     st.error(f"Erreur d'appel Gemini : {e}")
+                        if reply:
+                            st.markdown(reply)
+                            st.session_state.messages.append({"role": "assistant", "content": reply})
+                        else:
+                            st.error(f"Aucun modèle disponible : {derniere_erreur}")
+                    except Exception as e:
+                        st.error(f"Erreur d'appel Gemini : {e}")
 
-        # Bouton pour sauvegarder la dernière recommandation du coach directement dans Intervals.icu
         if st.session_state.messages and st.session_state.messages[-1]["role"] == "assistant":
             if st.button("📌 Sauvegarder ce conseil en Note du jour sur Intervals.icu"):
                 derniere_rep = st.session_state.messages[-1]["content"]
