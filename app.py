@@ -216,7 +216,7 @@ Instructions de style :
                         client = genai.Client(api_key=gemini_key)
                         full_prompt = f"{contexte_live}\n\nQuestion de l'athlète : {prompt_user}"
                         response = client.models.generate_content(
-                            model="gemini-2.5-flash",
+                            model="gemini-3.0-flash",
                             contents=full_prompt
                         )
                         reply = response.text
