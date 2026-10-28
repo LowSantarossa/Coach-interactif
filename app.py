@@ -213,16 +213,30 @@ Instructions de style :
                         client = genai.Client(api_key=gemini_key)
                         full_prompt = f"{contexte_live}\n\nQuestion de l'athlète : {prompt_user}"
 
+                        # Liste prioritaire des modèles texte (sans les modèles Live/Audio)
                         modeles_a_tester = [
-                            "gemini-3-flash-preview",
                             "gemini-2.0-flash",
-                            "gemini-1.5-flash"
+                            "gemini-2.0-flash-lite",
+                            "gemini-3.1-flash-preview",
+                            "gemini-3-flash-preview",
+                            "gemini-2.5-pro",
+                            "gemini-2.0-pro-exp"
                         ]
                         try:
                             for m in client.models.list():
                                 nom_m = getattr(m, "name", "").replace("models/", "")
-                                if "flash" in nom_m and "2.5" not in nom_m and nom_m not in modeles_a_tester:
-                                    modeles_a_tester.insert(0, nom_m)
+                                actions = getattr(m, "supported_actions", []) or []
+                                # On exclut les modèles Live/Audio/TTS et 2.5-flash bloqué
+                                if (
+                                    "gemini" in nom_m
+                                    and "live" not in nom_m
+                                    and "tts" not in nom_m
+                                    and "image" not in nom_m
+                                    and "2.5-flash" not in nom_m
+                                    and (not actions or "generateContent" in actions)
+                                    and nom_m not in modeles_a_tester
+                                ):
+                                    modeles_a_tester.append(nom_m)
                         except Exception:
                             pass
 
@@ -237,7 +251,7 @@ Instructions de style :
                                 reply = response.text
                                 break
                             except Exception as err:
-                                derniere_erreur = str(err)
+                                derniere_erreur = f"[{nom_modele}] {err}"
                                 continue
 
                         if reply:
@@ -278,4 +292,4 @@ with tab_agenda:
             with st.expander(f"{icone} {d_ev} — {nom} ({cat})"):
                 st.text(desc or "Aucun détail.")
     else:
-        st.info("Aucun entraînement ou note planifié pour les prochains jours.")
+        st.info("Aucun entraînement ou note planifié pour les prochains jours
